@@ -152,20 +152,34 @@ void reset_cursor() {
     printf("\x1b[%dA", HEIGHT);
 }
 
-int main() {
+void read_file(FILE *fd) {
+    int chars = 0;
+    int lines = 0;
+    char ch;
+    while ((ch = fgetc(fd)) != EOF) {
+        if (ch != '\n') {
+            assert(ch == EMPTY || ch == CELL);
+            chars++;
+            assert(chars <= WIDTH);
+            grid[lines][chars] = ch;
+        }
+        else {
+            chars = 0;
+            lines++;
+            assert(lines <= HEIGHT);
+        }
+    }
+}
+
+int main(int argc, char **argv) {
     fill_grid(EMPTY);
 
-    Coord cs[] = {
-        { .x = 5, .y = 5 },
-        { .x = 6, .y = 6 },
-        { .x = 6, .y = 7 },
-        { .x = 7, .y = 5 },
-        { .x = 7, .y = 6 },
-    };
-
-    for (int i = 0; i < sizeof(cs) / sizeof(Coord); i++) {
-        place_cell(cs[i]);
+    FILE *fd = stdin;
+    if (argc > 1) {
+        fd = fopen(argv[1], "r");
     }
+    read_file(fd);
+    fclose(fd);
 
     print_grid();
     while (update()) {
