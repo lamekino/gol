@@ -1,16 +1,21 @@
+#define _XOPEN_SOURCE 500
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define SECOND 1000000
+#define FPS    15
+
 #define HEIGHT 32
 #define WIDTH  HEIGHT * 2
-#define EMPTY '.'
-#define CELL  '#'
 #define BOUND_CHECK(c) \
         c.x >= 0 && c.x < HEIGHT && \
         c.y >= 0 && c.y < WIDTH
+
+#define EMPTY '.'
+#define CELL  '#'
 
 char grid[HEIGHT][WIDTH];
 
@@ -79,8 +84,17 @@ typedef struct task {
         KILL,
         BIRTH,
     } type;
-    Coord coord;
+    Coord coords;
 } Task;
+
+void process_task(Task t) {
+    if (t.type == KILL) {
+        clear_cell(t.coords);
+    }
+    else if (t.type == BIRTH) {
+        place_cell(t.coords);
+    }
+}
 
 typedef struct stack {
     Task *head;
@@ -109,20 +123,21 @@ int update() {
 
     for (int x = 0; x < HEIGHT; x++) {
         for (int y = 0; y < WIDTH; y++) {
-            Coord cs = { .x = x, .y = y };
-            int num_neighbors = neighbors(cs);
+            Task t;
+            t.coords = (Coord) { .x = x, .y = y };
+            int num_neighbors = neighbors(t.coords);
             
             // dead state
             if (num_neighbors < 2 || num_neighbors > 3) {
-                if (is_alive(cs)) {
-                    Task t = { .coord = cs, .type = KILL };
+                if (is_alive(t.coords)) {
+                    t.type = KILL;
                     push(stack, t);
                 }
             }
             // reproduction state
             else if (num_neighbors == 3) {
-                if (!is_alive(cs)) {
-                    Task t = { .coord = cs, .type = BIRTH };
+                if (!is_alive(t.coords)) {
+                    t.type = BIRTH;
                     push(stack, t);
                 }
             }
@@ -130,17 +145,11 @@ int update() {
     }
 
     // clear task stack, for each action type
-    // the cell at t.coord gets either cleared
+    // the cell at t.coords gets either cleared
     // or placed
     int num_updates = stack->size;
     while (stack->size) {
-        Task t = pop(stack);
-        if (t.type == KILL) {
-            clear_cell(t.coord);
-        }
-        else if (t.type == BIRTH) {
-            place_cell(t.coord);
-        }
+        process_task(pop(stack));
     }
 
     free(stack);
@@ -181,11 +190,12 @@ int main(int argc, char **argv) {
     read_file(fd);
     fclose(fd);
 
+    const unsigned int delay = SECOND / FPS;
     print_grid();
     while (update()) {
         reset_cursor();
         print_grid();
-        usleep(100000);
+        usleep(delay);
     }
 
     return 0;
